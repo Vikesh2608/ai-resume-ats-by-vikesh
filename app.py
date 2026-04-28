@@ -18,22 +18,22 @@ st.set_page_config(
 # HEADER
 # ---------------------------------------------------
 st.title("🚀 AI Resume ATS Scoring Engine")
-st.subheader("Version 3 - Executive Recruiter Dashboard")
+st.subheader("Version 4 - Smart Candidate Fit Analyzer")
 st.caption("Built by Vikesh Sagar Bairam")
 
 st.markdown("""
 ### Intelligent Candidate Screening Platform
 
-This AI-powered platform helps recruiters shortlist candidates faster using NLP.
+This AI-powered tool helps recruiters shortlist candidates faster using NLP.
 
 ### Premium Features
 
 ✅ Upload Multiple Resumes  
 ✅ Candidate Ranking  
-✅ Top Candidate Highlight  
+✅ Missing Skills Detection  
+✅ Good Fit Badge  
 ✅ Interview Questions Generator  
-✅ Hiring Recommendation  
-✅ Recruiter Analytics Dashboard  
+✅ Recruiter Dashboard  
 ✅ CSV Export  
 
 ### Creator
@@ -49,7 +49,6 @@ This AI-powered platform helps recruiters shortlist candidates faster using NLP.
 # FUNCTIONS
 # ---------------------------------------------------
 
-# Extract text from uploaded PDF
 def extract_text(uploaded_file):
     text = ""
 
@@ -63,7 +62,6 @@ def extract_text(uploaded_file):
     return text.lower()
 
 
-# Calculate similarity score
 def calculate_score(resume_text, jd_text):
 
     docs = [resume_text, jd_text]
@@ -76,7 +74,6 @@ def calculate_score(resume_text, jd_text):
     return round(score * 100, 2)
 
 
-# Skill database
 skills_db = [
     "python", "sql", "excel", "tableau", "power bi",
     "machine learning", "deep learning", "aws", "azure",
@@ -86,7 +83,6 @@ skills_db = [
 ]
 
 
-# Detect skills
 def find_skills(text):
 
     found = []
@@ -98,20 +94,18 @@ def find_skills(text):
     return found
 
 
-# Hiring recommendation
-def hiring_recommendation(score):
+def fit_status(score, missing_count):
 
-    if score >= 80:
-        return "🔥 Strong Hire"
+    if score >= 75 and missing_count <= 2:
+        return "✅ GOOD FIT"
 
     elif score >= 60:
-        return "👍 Consider"
+        return "👍 POSSIBLE FIT"
 
     else:
-        return "⚠️ Weak Fit"
+        return "❌ NOT FIT"
 
 
-# Generate interview questions
 def interview_questions(skills):
 
     questions = []
@@ -125,20 +119,20 @@ def interview_questions(skills):
     if "aws" in skills:
         questions.append("Describe your AWS cloud experience.")
 
-    if "leadership" in skills:
-        questions.append("Tell us about a leadership challenge.")
-
     if "machine learning" in skills:
-        questions.append("Describe a machine learning model you built.")
+        questions.append("Describe a machine learning project.")
+
+    if "leadership" in skills:
+        questions.append("Tell us about your leadership experience.")
 
     if not questions:
-        questions.append("Tell us about your background and strengths.")
+        questions.append("Tell us about your background.")
 
     return questions
 
 
 # ---------------------------------------------------
-# INPUT SECTION
+# INPUTS
 # ---------------------------------------------------
 
 uploaded_files = st.file_uploader(
@@ -173,6 +167,7 @@ if analyze:
     else:
 
         jd_text = job_desc.lower()
+        jd_skills = set(find_skills(jd_text))
 
         results = []
 
@@ -187,18 +182,30 @@ if analyze:
                     jd_text
                 )
 
-                skills = find_skills(resume_text)
+                resume_skills = set(find_skills(resume_text))
 
-                recommendation = hiring_recommendation(score)
+                matched_skills = list(
+                    resume_skills.intersection(jd_skills)
+                )
+
+                missing_skills = list(
+                    jd_skills - resume_skills
+                )
+
+                status = fit_status(
+                    score,
+                    len(missing_skills)
+                )
 
                 results.append({
                     "Candidate": file.name,
                     "Score": score,
-                    "Skills": ", ".join(skills),
-                    "Recommendation": recommendation
+                    "Matched Skills": ", ".join(matched_skills),
+                    "Missing Skills": ", ".join(missing_skills),
+                    "Fit Status": status
                 })
 
-        # Sort Results
+        # SORT RESULTS
         results = sorted(
             results,
             key=lambda x: x["Score"],
@@ -212,9 +219,8 @@ if analyze:
         # ---------------------------------------------------
         top_candidate = results[0]["Candidate"]
         top_score = results[0]["Score"]
-        avg_score = round(df["Score"].mean(), 2)
 
-        c1, c2, c3 = st.columns(3)
+        c1, c2 = st.columns(2)
 
         with c1:
             st.metric("🏆 Top Candidate", top_candidate)
@@ -222,15 +228,12 @@ if analyze:
         with c2:
             st.metric("📈 Top Score", f"{top_score}%")
 
-        with c3:
-            st.metric("📊 Avg Score", f"{avg_score}%")
-
         st.markdown("---")
 
         # ---------------------------------------------------
-        # RANKINGS
+        # CANDIDATE OUTPUT
         # ---------------------------------------------------
-        st.subheader("🏆 Candidate Rankings")
+        st.subheader("🏆 Candidate Results")
 
         for idx, row in enumerate(results, start=1):
 
@@ -239,14 +242,20 @@ if analyze:
             st.progress(int(row["Score"]))
 
             st.success(
-                f"{row['Score']}% Match | {row['Recommendation']}"
+                f"{row['Score']}% Match | {row['Fit Status']}"
             )
 
             st.write(
-                f"**Detected Skills:** {row['Skills']}"
+                f"**Matched Skills:** {row['Matched Skills']}"
             )
 
-            qs = interview_questions(row["Skills"].lower())
+            st.write(
+                f"**Missing Skills:** {row['Missing Skills']}"
+            )
+
+            qs = interview_questions(
+                row["Matched Skills"].lower()
+            )
 
             st.write("**Suggested Interview Questions:**")
 
@@ -256,7 +265,7 @@ if analyze:
             st.markdown("---")
 
         # ---------------------------------------------------
-        # TABLE
+        # DASHBOARD TABLE
         # ---------------------------------------------------
         st.subheader("📋 Recruiter Dashboard")
 
@@ -275,6 +284,7 @@ if analyze:
         ax.bar(df["Candidate"], df["Score"])
         ax.set_ylabel("Score %")
         ax.set_xlabel("Candidate")
+
         plt.xticks(rotation=45, ha="right")
 
         st.pyplot(fig)
