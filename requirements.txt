@@ -1,3 +1,5 @@
 streamlit
 pdfplumber
+pandas
+matplotlib
 scikit-learn
