@@ -2,6 +2,7 @@ import streamlit as st
 import pdfplumber
 import pandas as pd
 import matplotlib.pyplot as plt
+import docx
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -18,18 +19,18 @@ st.set_page_config(
 # HEADER
 # ---------------------------------------------------
 st.title("🚀 AI Resume ATS Scoring Engine")
-st.subheader("Version 4 - Smart Candidate Fit Analyzer")
+st.subheader("Version 5 - Universal Resume Upload Platform")
 st.caption("Built by Vikesh Sagar Bairam")
 
 st.markdown("""
 ### Intelligent Candidate Screening Platform
 
-This AI-powered tool helps recruiters shortlist candidates faster using NLP.
+Upload resumes in multiple formats and shortlist candidates instantly.
 
 ### Premium Features
 
-✅ Upload Multiple Resumes  
-✅ Candidate Ranking  
+✅ Upload PDF / DOCX / TXT Resumes  
+✅ Multiple Candidate Ranking  
 ✅ Missing Skills Detection  
 ✅ Good Fit Badge  
 ✅ Interview Questions Generator  
@@ -49,19 +50,47 @@ This AI-powered tool helps recruiters shortlist candidates faster using NLP.
 # FUNCTIONS
 # ---------------------------------------------------
 
+# Extract text from multiple file formats
 def extract_text(uploaded_file):
+
+    filename = uploaded_file.name.lower()
     text = ""
 
-    with pdfplumber.open(uploaded_file) as pdf:
-        for page in pdf.pages:
-            page_text = page.extract_text()
+    try:
 
-            if page_text:
-                text += page_text + " "
+        # PDF
+        if filename.endswith(".pdf"):
+
+            with pdfplumber.open(uploaded_file) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+
+                    if page_text:
+                        text += page_text + " "
+
+        # DOCX
+        elif filename.endswith(".docx"):
+
+            doc = docx.Document(uploaded_file)
+
+            for para in doc.paragraphs:
+                text += para.text + " "
+
+        # TXT
+        elif filename.endswith(".txt"):
+
+            text = uploaded_file.read().decode("utf-8")
+
+        else:
+            text = ""
+
+    except:
+        text = ""
 
     return text.lower()
 
 
+# Calculate ATS score
 def calculate_score(resume_text, jd_text):
 
     docs = [resume_text, jd_text]
@@ -74,6 +103,7 @@ def calculate_score(resume_text, jd_text):
     return round(score * 100, 2)
 
 
+# Skills database
 skills_db = [
     "python", "sql", "excel", "tableau", "power bi",
     "machine learning", "deep learning", "aws", "azure",
@@ -83,6 +113,7 @@ skills_db = [
 ]
 
 
+# Find skills
 def find_skills(text):
 
     found = []
@@ -94,6 +125,7 @@ def find_skills(text):
     return found
 
 
+# Fit Status
 def fit_status(score, missing_count):
 
     if score >= 75 and missing_count <= 2:
@@ -106,6 +138,7 @@ def fit_status(score, missing_count):
         return "❌ NOT FIT"
 
 
+# Interview Questions
 def interview_questions(skills):
 
     questions = []
@@ -120,7 +153,7 @@ def interview_questions(skills):
         questions.append("Describe your AWS cloud experience.")
 
     if "machine learning" in skills:
-        questions.append("Describe a machine learning project.")
+        questions.append("Describe a machine learning model.")
 
     if "leadership" in skills:
         questions.append("Tell us about your leadership experience.")
@@ -132,12 +165,12 @@ def interview_questions(skills):
 
 
 # ---------------------------------------------------
-# INPUTS
+# INPUT SECTION
 # ---------------------------------------------------
 
 uploaded_files = st.file_uploader(
-    "📄 Upload Multiple Resume PDFs",
-    type=["pdf"],
+    "📄 Upload Resume Files",
+    type=["pdf", "docx", "txt"],
     accept_multiple_files=True
 )
 
@@ -177,6 +210,9 @@ if analyze:
 
                 resume_text = extract_text(file)
 
+                if resume_text.strip() == "":
+                    continue
+
                 score = calculate_score(
                     resume_text,
                     jd_text
@@ -205,12 +241,16 @@ if analyze:
                     "Fit Status": status
                 })
 
-        # SORT RESULTS
+        # Sort Results
         results = sorted(
             results,
             key=lambda x: x["Score"],
             reverse=True
         )
+
+        if len(results) == 0:
+            st.error("No readable resumes found.")
+            st.stop()
 
         df = pd.DataFrame(results)
 
@@ -219,8 +259,9 @@ if analyze:
         # ---------------------------------------------------
         top_candidate = results[0]["Candidate"]
         top_score = results[0]["Score"]
+        avg_score = round(df["Score"].mean(), 2)
 
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
 
         with c1:
             st.metric("🏆 Top Candidate", top_candidate)
@@ -228,12 +269,15 @@ if analyze:
         with c2:
             st.metric("📈 Top Score", f"{top_score}%")
 
+        with c3:
+            st.metric("📊 Avg Score", f"{avg_score}%")
+
         st.markdown("---")
 
         # ---------------------------------------------------
-        # CANDIDATE OUTPUT
+        # CANDIDATE RESULTS
         # ---------------------------------------------------
-        st.subheader("🏆 Candidate Results")
+        st.subheader("🏆 Candidate Rankings")
 
         for idx, row in enumerate(results, start=1):
 
@@ -265,7 +309,7 @@ if analyze:
             st.markdown("---")
 
         # ---------------------------------------------------
-        # DASHBOARD TABLE
+        # TABLE
         # ---------------------------------------------------
         st.subheader("📋 Recruiter Dashboard")
 
