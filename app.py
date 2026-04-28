@@ -1,55 +1,63 @@
 import streamlit as st
 import pdfplumber
+import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# -----------------------------------
+# ---------------------------------------------------
 # PAGE CONFIG
-# -----------------------------------
+# ---------------------------------------------------
 st.set_page_config(
     page_title="AI Resume ATS by Vikesh",
     page_icon="🚀",
     layout="wide"
 )
 
-# -----------------------------------
+# ---------------------------------------------------
 # HEADER
-# -----------------------------------
+# ---------------------------------------------------
 st.title("🚀 AI Resume ATS Scoring Engine")
-st.subheader("Built by Vikesh")
+st.subheader("Version 2 - Multi Candidate Ranking")
+st.caption("Built by Vikesh")
 
 st.markdown("""
 ### Why This Tool Exists
 
-Hiring teams receive hundreds of resumes for one role.  
-This AI-powered tool helps recruiters and job seekers quickly evaluate:
+Recruiters receive hundreds of resumes for one role.  
+This AI tool helps quickly shortlist the best candidates.
 
-✅ Resume Match Score  
-✅ Missing Skills Detection  
-✅ Matching Skills Found  
-✅ Better Hiring Decisions  
-✅ Faster Resume Screening  
+### Features
+
+✅ Upload Multiple Resumes  
+✅ Candidate Ranking  
+✅ ATS Match Score  
+✅ Faster Hiring Decisions  
+✅ Recruiter Friendly Dashboard
 
 ---
 """)
 
-# -----------------------------------
+# ---------------------------------------------------
 # FUNCTIONS
-# -----------------------------------
+# ---------------------------------------------------
 
-# Extract text from uploaded PDF
+# Extract text from PDF
 def extract_text(uploaded_file):
     text = ""
+
     with pdfplumber.open(uploaded_file) as pdf:
         for page in pdf.pages:
             page_text = page.extract_text()
+
             if page_text:
                 text += page_text + " "
+
     return text.lower()
 
 
-# Calculate similarity score
+# Calculate score
 def calculate_score(resume_text, jd_text):
+
     docs = [resume_text, jd_text]
 
     tfidf = TfidfVectorizer(stop_words="english")
@@ -60,18 +68,19 @@ def calculate_score(resume_text, jd_text):
     return round(score * 100, 2)
 
 
-# Skills database
+# Skill database
 skills_db = [
     "python", "sql", "excel", "tableau", "power bi",
     "machine learning", "deep learning", "aws", "azure",
     "java", "cloud", "pandas", "numpy", "statistics",
-    "data analysis", "etl", "spark", "tensorflow",
-    "communication", "leadership", "project management"
+    "etl", "spark", "tensorflow", "leadership",
+    "communication", "project management"
 ]
 
 
-# Find matching skills
+# Detect skills
 def find_skills(text):
+
     found = []
 
     for skill in skills_db:
@@ -81,93 +90,120 @@ def find_skills(text):
     return found
 
 
-# -----------------------------------
-# INPUT SECTION
-# -----------------------------------
+# ---------------------------------------------------
+# INPUTS
+# ---------------------------------------------------
 
-uploaded_file = st.file_uploader(
-    "📄 Upload Resume PDF",
-    type=["pdf"]
+uploaded_files = st.file_uploader(
+    "📄 Upload Multiple Resume PDFs",
+    type=["pdf"],
+    accept_multiple_files=True
 )
 
 job_desc = st.text_area(
     "📝 Paste Job Description",
     height=220,
-    placeholder="Paste the full job description here..."
+    placeholder="Paste full job description here..."
 )
 
 analyze = st.button(
-    "🚀 Analyze Resume",
+    "🚀 Rank Candidates",
     use_container_width=True
 )
 
-# -----------------------------------
+# ---------------------------------------------------
 # PROCESSING
-# -----------------------------------
+# ---------------------------------------------------
 
 if analyze:
 
-    if uploaded_file is None:
-        st.warning("Please upload a resume PDF.")
-    
+    if not uploaded_files:
+        st.warning("Please upload at least one resume.")
+
     elif job_desc.strip() == "":
         st.warning("Please paste the job description.")
 
     else:
 
-        with st.spinner("Analyzing Resume..."):
+        jd_text = job_desc.lower()
+        results = []
 
-            resume_text = extract_text(uploaded_file)
-            jd_text = job_desc.lower()
+        with st.spinner("Ranking candidates..."):
 
-            score = calculate_score(resume_text, jd_text)
+            for file in uploaded_files:
 
-            resume_skills = set(find_skills(resume_text))
-            jd_skills = set(find_skills(jd_text))
+                resume_text = extract_text(file)
 
-            matched_skills = list(resume_skills.intersection(jd_skills))
-            missing_skills = list(jd_skills - resume_skills)
+                score = calculate_score(
+                    resume_text,
+                    jd_text
+                )
 
-        # -----------------------------
-        # SCORE SECTION
-        # -----------------------------
-        st.subheader("📊 ATS Match Score")
+                skills = find_skills(resume_text)
 
-        st.progress(int(score))
-        st.success(f"{score}% Match")
+                results.append({
+                    "Candidate": file.name,
+                    "Score": score,
+                    "Skills": ", ".join(skills)
+                })
 
-        # -----------------------------
-        # TWO COLUMNS
-        # -----------------------------
-        col1, col2 = st.columns(2)
+        # Sort descending
+        results = sorted(
+            results,
+            key=lambda x: x["Score"],
+            reverse=True
+        )
 
-        with col1:
-            st.subheader("✅ Matching Skills")
+        # ---------------------------------------------------
+        # TOP RESULTS
+        # ---------------------------------------------------
+        st.subheader("🏆 Candidate Rankings")
 
-            if matched_skills:
-                for skill in matched_skills:
-                    st.write("✔️", skill.title())
-            else:
-                st.write("No matching skills found.")
+        for idx, row in enumerate(results, start=1):
 
-        with col2:
-            st.subheader("⚠️ Missing Skills")
+            st.markdown(
+                f"### #{idx} {row['Candidate']}"
+            )
 
-            if missing_skills:
-                for skill in missing_skills:
-                    st.write("❌", skill.title())
-            else:
-                st.write("No major skill gaps.")
+            st.progress(int(row["Score"]))
+            st.success(
+                f"ATS Match Score: {row['Score']}%"
+            )
 
-        # -----------------------------
-        # RESUME PREVIEW
-        # -----------------------------
-        st.subheader("📄 Resume Preview")
-        st.write(resume_text[:3000])
+            st.write(
+                f"**Detected Skills:** {row['Skills']}"
+            )
 
-# -----------------------------------
+            st.markdown("---")
+
+        # ---------------------------------------------------
+        # DATA TABLE
+        # ---------------------------------------------------
+        st.subheader("📊 Ranking Table")
+
+        df = pd.DataFrame(results)
+
+        st.dataframe(
+            df,
+            use_container_width=True
+        )
+
+        # ---------------------------------------------------
+        # CSV DOWNLOAD
+        # ---------------------------------------------------
+        csv = df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            label="📥 Download Rankings CSV",
+            data=csv,
+            file_name="candidate_rankings.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+# ---------------------------------------------------
 # FOOTER
-# -----------------------------------
+# ---------------------------------------------------
 
 st.markdown("---")
-st.caption("© 2026 Built by Vikesh | AI Resume ATS Scoring Engine")
+st.caption("© 2026 Built by Vikesh | AI Resume ATS Engine")
