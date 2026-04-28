@@ -3,3 +3,5 @@ pdfplumber
 pandas
 matplotlib
 scikit-learn
+python-docx
+textract
