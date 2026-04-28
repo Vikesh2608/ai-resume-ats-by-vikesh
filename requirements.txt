@@ -2,6 +2,7 @@ streamlit
 pdfplumber
 pandas
 matplotlib
-scikit-learn
 python-docx
-textract
+scikit-learn
+sentence-transformers
+torch
