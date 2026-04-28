@@ -1,6 +1,7 @@
 import streamlit as st
 import pdfplumber
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -17,22 +18,29 @@ st.set_page_config(
 # HEADER
 # ---------------------------------------------------
 st.title("🚀 AI Resume ATS Scoring Engine")
-st.subheader("Version 2 - Multi Candidate Ranking")
-st.caption("Built by Vikesh")
+st.subheader("Version 3 - Executive Recruiter Dashboard")
+st.caption("Built by Vikesh Sagar Bairam")
 
 st.markdown("""
-### Why This Tool Exists
+### Intelligent Candidate Screening Platform
 
-Recruiters receive hundreds of resumes for one role.  
-This AI tool helps quickly shortlist the best candidates.
+This AI-powered platform helps recruiters shortlist candidates faster using NLP.
 
-### Features
+### Premium Features
 
 ✅ Upload Multiple Resumes  
 ✅ Candidate Ranking  
-✅ ATS Match Score  
-✅ Faster Hiring Decisions  
-✅ Recruiter Friendly Dashboard
+✅ Top Candidate Highlight  
+✅ Interview Questions Generator  
+✅ Hiring Recommendation  
+✅ Recruiter Analytics Dashboard  
+✅ CSV Export  
+
+### Creator
+
+👨‍💻 **Vikesh Sagar Bairam**  
+📧 vikebairam@gmail.com  
+🔗 LinkedIn: https://www.linkedin.com/in/vikesh-bairam-219769258/
 
 ---
 """)
@@ -41,7 +49,7 @@ This AI tool helps quickly shortlist the best candidates.
 # FUNCTIONS
 # ---------------------------------------------------
 
-# Extract text from PDF
+# Extract text from uploaded PDF
 def extract_text(uploaded_file):
     text = ""
 
@@ -55,7 +63,7 @@ def extract_text(uploaded_file):
     return text.lower()
 
 
-# Calculate score
+# Calculate similarity score
 def calculate_score(resume_text, jd_text):
 
     docs = [resume_text, jd_text]
@@ -90,8 +98,47 @@ def find_skills(text):
     return found
 
 
+# Hiring recommendation
+def hiring_recommendation(score):
+
+    if score >= 80:
+        return "🔥 Strong Hire"
+
+    elif score >= 60:
+        return "👍 Consider"
+
+    else:
+        return "⚠️ Weak Fit"
+
+
+# Generate interview questions
+def interview_questions(skills):
+
+    questions = []
+
+    if "python" in skills:
+        questions.append("Explain a Python project you built.")
+
+    if "sql" in skills:
+        questions.append("How do you optimize SQL queries?")
+
+    if "aws" in skills:
+        questions.append("Describe your AWS cloud experience.")
+
+    if "leadership" in skills:
+        questions.append("Tell us about a leadership challenge.")
+
+    if "machine learning" in skills:
+        questions.append("Describe a machine learning model you built.")
+
+    if not questions:
+        questions.append("Tell us about your background and strengths.")
+
+    return questions
+
+
 # ---------------------------------------------------
-# INPUTS
+# INPUT SECTION
 # ---------------------------------------------------
 
 uploaded_files = st.file_uploader(
@@ -107,7 +154,7 @@ job_desc = st.text_area(
 )
 
 analyze = st.button(
-    "🚀 Rank Candidates",
+    "🚀 Analyze Candidates",
     use_container_width=True
 )
 
@@ -118,7 +165,7 @@ analyze = st.button(
 if analyze:
 
     if not uploaded_files:
-        st.warning("Please upload at least one resume.")
+        st.warning("Please upload resumes.")
 
     elif job_desc.strip() == "":
         st.warning("Please paste the job description.")
@@ -126,9 +173,10 @@ if analyze:
     else:
 
         jd_text = job_desc.lower()
+
         results = []
 
-        with st.spinner("Ranking candidates..."):
+        with st.spinner("Analyzing candidates..."):
 
             for file in uploaded_files:
 
@@ -141,47 +189,76 @@ if analyze:
 
                 skills = find_skills(resume_text)
 
+                recommendation = hiring_recommendation(score)
+
                 results.append({
                     "Candidate": file.name,
                     "Score": score,
-                    "Skills": ", ".join(skills)
+                    "Skills": ", ".join(skills),
+                    "Recommendation": recommendation
                 })
 
-        # Sort descending
+        # Sort Results
         results = sorted(
             results,
             key=lambda x: x["Score"],
             reverse=True
         )
 
+        df = pd.DataFrame(results)
+
         # ---------------------------------------------------
-        # TOP RESULTS
+        # KPI SECTION
+        # ---------------------------------------------------
+        top_candidate = results[0]["Candidate"]
+        top_score = results[0]["Score"]
+        avg_score = round(df["Score"].mean(), 2)
+
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.metric("🏆 Top Candidate", top_candidate)
+
+        with c2:
+            st.metric("📈 Top Score", f"{top_score}%")
+
+        with c3:
+            st.metric("📊 Avg Score", f"{avg_score}%")
+
+        st.markdown("---")
+
+        # ---------------------------------------------------
+        # RANKINGS
         # ---------------------------------------------------
         st.subheader("🏆 Candidate Rankings")
 
         for idx, row in enumerate(results, start=1):
 
-            st.markdown(
-                f"### #{idx} {row['Candidate']}"
-            )
+            st.markdown(f"### #{idx} {row['Candidate']}")
 
             st.progress(int(row["Score"]))
+
             st.success(
-                f"ATS Match Score: {row['Score']}%"
+                f"{row['Score']}% Match | {row['Recommendation']}"
             )
 
             st.write(
                 f"**Detected Skills:** {row['Skills']}"
             )
 
+            qs = interview_questions(row["Skills"].lower())
+
+            st.write("**Suggested Interview Questions:**")
+
+            for q in qs:
+                st.write("•", q)
+
             st.markdown("---")
 
         # ---------------------------------------------------
-        # DATA TABLE
+        # TABLE
         # ---------------------------------------------------
-        st.subheader("📊 Ranking Table")
-
-        df = pd.DataFrame(results)
+        st.subheader("📋 Recruiter Dashboard")
 
         st.dataframe(
             df,
@@ -189,14 +266,28 @@ if analyze:
         )
 
         # ---------------------------------------------------
-        # CSV DOWNLOAD
+        # CHART
+        # ---------------------------------------------------
+        st.subheader("📊 Candidate Score Chart")
+
+        fig, ax = plt.subplots()
+
+        ax.bar(df["Candidate"], df["Score"])
+        ax.set_ylabel("Score %")
+        ax.set_xlabel("Candidate")
+        plt.xticks(rotation=45, ha="right")
+
+        st.pyplot(fig)
+
+        # ---------------------------------------------------
+        # DOWNLOAD REPORT
         # ---------------------------------------------------
         csv = df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            label="📥 Download Rankings CSV",
+            label="📥 Download Candidate Report",
             data=csv,
-            file_name="candidate_rankings.csv",
+            file_name="candidate_report.csv",
             mime="text/csv",
             use_container_width=True
         )
@@ -204,6 +295,9 @@ if analyze:
 # ---------------------------------------------------
 # FOOTER
 # ---------------------------------------------------
-
 st.markdown("---")
-st.caption("© 2026 Built by Vikesh | AI Resume ATS Engine")
+st.caption(
+    "© 2026 Built by Vikesh Sagar Bairam | "
+    "LinkedIn: linkedin.com/in/vikesh-bairam-219769258 | "
+    "Email: vikebairam@gmail.com"
+)
