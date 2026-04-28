@@ -90,8 +90,13 @@ uploaded_file = st.file_uploader("📄 Upload Resume PDF", type=["pdf"])
 
 job_desc = st.text_area(
     "📝 Paste Job Description",
-    height=220
+    height=220,
+    placeholder="Paste the full job description here..."
 )
+
+analyze = st.button("🚀 Analyze Resume", use_container_width=True)
+
+if analyze and uploaded_file and job_desc:
 
 # -------------------------
 # PROCESSING
