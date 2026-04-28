@@ -3,28 +3,26 @@ import pdfplumber
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# -------------------------
-# PAGE SETTINGS
-# -------------------------
+# -----------------------------------
+# PAGE CONFIG
+# -----------------------------------
 st.set_page_config(
     page_title="AI Resume ATS by Vikesh",
     page_icon="🚀",
     layout="wide"
 )
 
-# -------------------------
+# -----------------------------------
 # HEADER
-# -------------------------
+# -----------------------------------
 st.title("🚀 AI Resume ATS Scoring Engine")
 st.subheader("Built by Vikesh")
 
 st.markdown("""
 ### Why This Tool Exists
 
-Hiring teams receive hundreds of resumes for a single role.  
-This AI-powered tool helps recruiters and job seekers quickly evaluate how well a resume matches a job description.
-
-### Key Benefits
+Hiring teams receive hundreds of resumes for one role.  
+This AI-powered tool helps recruiters and job seekers quickly evaluate:
 
 ✅ Resume Match Score  
 ✅ Missing Skills Detection  
@@ -35,9 +33,11 @@ This AI-powered tool helps recruiters and job seekers quickly evaluate how well 
 ---
 """)
 
-# -------------------------
-# PDF TEXT EXTRACTION
-# -------------------------
+# -----------------------------------
+# FUNCTIONS
+# -----------------------------------
+
+# Extract text from uploaded PDF
 def extract_text(uploaded_file):
     text = ""
     with pdfplumber.open(uploaded_file) as pdf:
@@ -47,9 +47,8 @@ def extract_text(uploaded_file):
                 text += page_text + " "
     return text.lower()
 
-# -------------------------
-# SCORE CALCULATION
-# -------------------------
+
+# Calculate similarity score
 def calculate_score(resume_text, jd_text):
     docs = [resume_text, jd_text]
 
@@ -60,20 +59,18 @@ def calculate_score(resume_text, jd_text):
 
     return round(score * 100, 2)
 
-# -------------------------
-# SKILLS DATABASE
-# -------------------------
+
+# Skills database
 skills_db = [
     "python", "sql", "excel", "tableau", "power bi",
     "machine learning", "deep learning", "aws", "azure",
-    "java", "pandas", "numpy", "statistics",
+    "java", "cloud", "pandas", "numpy", "statistics",
     "data analysis", "etl", "spark", "tensorflow",
     "communication", "leadership", "project management"
 ]
 
-# -------------------------
-# FIND SKILLS
-# -------------------------
+
+# Find matching skills
 def find_skills(text):
     found = []
 
@@ -83,10 +80,15 @@ def find_skills(text):
 
     return found
 
-# -------------------------
+
+# -----------------------------------
 # INPUT SECTION
-# -------------------------
-uploaded_file = st.file_uploader("📄 Upload Resume PDF", type=["pdf"])
+# -----------------------------------
+
+uploaded_file = st.file_uploader(
+    "📄 Upload Resume PDF",
+    type=["pdf"]
+)
 
 job_desc = st.text_area(
     "📝 Paste Job Description",
@@ -94,65 +96,78 @@ job_desc = st.text_area(
     placeholder="Paste the full job description here..."
 )
 
-analyze = st.button("🚀 Analyze Resume", use_container_width=True)
+analyze = st.button(
+    "🚀 Analyze Resume",
+    use_container_width=True
+)
 
-if analyze and uploaded_file and job_desc:
-
-# -------------------------
+# -----------------------------------
 # PROCESSING
-# -------------------------
-if uploaded_file and job_desc:
+# -----------------------------------
 
-    resume_text = extract_text(uploaded_file)
-    jd_text = job_desc.lower()
+if analyze:
 
-    score = calculate_score(resume_text, jd_text)
+    if uploaded_file is None:
+        st.warning("Please upload a resume PDF.")
+    
+    elif job_desc.strip() == "":
+        st.warning("Please paste the job description.")
 
-    resume_skills = set(find_skills(resume_text))
-    jd_skills = set(find_skills(jd_text))
+    else:
 
-    matched_skills = list(resume_skills.intersection(jd_skills))
-    missing_skills = list(jd_skills - resume_skills)
+        with st.spinner("Analyzing Resume..."):
 
-    # -------------------------
-    # SCORE SECTION
-    # -------------------------
-    st.subheader("📊 ATS Match Score")
+            resume_text = extract_text(uploaded_file)
+            jd_text = job_desc.lower()
 
-    st.progress(int(score))
-    st.success(f"{score}% Match")
+            score = calculate_score(resume_text, jd_text)
 
-    # -------------------------
-    # SKILL COLUMNS
-    # -------------------------
-    col1, col2 = st.columns(2)
+            resume_skills = set(find_skills(resume_text))
+            jd_skills = set(find_skills(jd_text))
 
-    with col1:
-        st.subheader("✅ Matching Skills")
+            matched_skills = list(resume_skills.intersection(jd_skills))
+            missing_skills = list(jd_skills - resume_skills)
 
-        if matched_skills:
-            for skill in matched_skills:
-                st.write("✔️", skill.title())
-        else:
-            st.write("No matching skills found.")
+        # -----------------------------
+        # SCORE SECTION
+        # -----------------------------
+        st.subheader("📊 ATS Match Score")
 
-    with col2:
-        st.subheader("⚠️ Missing Skills")
+        st.progress(int(score))
+        st.success(f"{score}% Match")
 
-        if missing_skills:
-            for skill in missing_skills:
-                st.write("❌", skill.title())
-        else:
-            st.write("No major skill gaps.")
+        # -----------------------------
+        # TWO COLUMNS
+        # -----------------------------
+        col1, col2 = st.columns(2)
 
-    # -------------------------
-    # RESUME PREVIEW
-    # -------------------------
-    st.subheader("📄 Resume Preview")
-    st.write(resume_text[:3000])
+        with col1:
+            st.subheader("✅ Matching Skills")
 
-# -------------------------
+            if matched_skills:
+                for skill in matched_skills:
+                    st.write("✔️", skill.title())
+            else:
+                st.write("No matching skills found.")
+
+        with col2:
+            st.subheader("⚠️ Missing Skills")
+
+            if missing_skills:
+                for skill in missing_skills:
+                    st.write("❌", skill.title())
+            else:
+                st.write("No major skill gaps.")
+
+        # -----------------------------
+        # RESUME PREVIEW
+        # -----------------------------
+        st.subheader("📄 Resume Preview")
+        st.write(resume_text[:3000])
+
+# -----------------------------------
 # FOOTER
-# -------------------------
+# -----------------------------------
+
 st.markdown("---")
 st.caption("© 2026 Built by Vikesh | AI Resume ATS Scoring Engine")
